@@ -10,7 +10,34 @@ This is the code base for the models in "MetaAttention model: A new approach for
   <img style="width:90%" align="center" src="image/general-concept-model.png" />
 </p>
 <p align="center">
-  <b>Figure 1:</b> Overview concept of proposed model
+  <b>Figure 1:</b> Overview concept of MetaAttention architecture
+</p>
+
+In this work, we have experimented with combining the MetaAttention model’s
+architecture with the EfficientNet-B4 model and the ResNet50 model respectively.
+
+- As described by Mingxing Tan et al., the EfficientNet model includes 9 stages of
+stacking Conv and MBConv blocks. We extract features at layer 4 (or third MBConv
+block), layer 6 (fifth MBConv block) and last layer (after last Conv block) to be
+the inputs of MetaAttention blocks as in Figure 2.
+
+<p align="center">
+  <img style="width:90%" align="center" src="image/proposed-effnet.png" />
+</p>
+<p align="center">
+  <b>Figure 2:</b> Detail of EfficientNet-B4 model using MetaAttention architecture
+</p>
+
+- ResNet50 model has 5 main stages, where the first one is a convolutional layer
+with a kernel of shape 7 × 7, and the others are made of many Bottleneck blocks.
+With this architecture, we decide to use features extracted at the second, third,
+and fourth stages as the inputs for MetaAttention blocks as in Figure 3.
+
+<p align="center">
+  <img style="width:90%" align="center" src="image/proposed-effnet.png" />
+</p>
+<p align="center">
+  <b>Figure 3:</b> Detail of ResNet50 model using MetaAttention architecture
 </p>
 
 ## The AB Extractor Block
@@ -45,23 +72,23 @@ The dataset using in the paper is [HAM10000](https://www.nature.com/articles/sda
   <img style="width:90%" align="center" src="image/resnet_result.png" />
 </p>
 <p align="center">
-  <b>Figure 2:</b> F1 score difference between MetaAttention with previous methods
+  <b>Figure 4:</b> F1 score difference between MetaAttention with previous methods
 </p>
 
 <p align="center">
   <img style="width:90%" align="center" src="image/effnet_result.png" />
 </p>
 <p align="center">
-  <b>Figure 3:</b> F1 score difference between AB Extractor block and non-AB Extractor block
+  <b>Figure 5:</b> F1 score difference between AB Extractor block and non-AB Extractor block
 </p>
 
 ## Qualitative results
 
-Figure 4 display the attention heat maps from the EfficientNet-B4 model with
+Figure 6 display the attention heat maps from the EfficientNet-B4 model with
 MetaAttention blocks after layers 4, 6, and 9. These attention maps are superimposed
 on input images to show where the model is focusing. It can be observed that the deeper
 the layer, the more complicated the features and the more detailed the attention map. If
-we look at the attention map at layer 6 (Figure 4 middle), we can see that our proposed
+we look at the attention map at layer 6 (Figure 6 middle), we can see that our proposed
 model has detected and concentrated on the boundary of the skin lesions. At the last
 layer, with the global features extracted, the MetaAttention block is able to help the
 model eliminate all the noises and focus accurately on the abnormal part in the images.
@@ -70,6 +97,6 @@ model eliminate all the noises and focus accurately on the abnormal part in the 
   <img style="width:90%" align="center" src="image/merged-attn-maps.jpg" />
 </p>
 <p align="center">
-  <b>Figure 4:</b> Attention maps in EfficientNet-B4 with MetaAttention blocks at layer 4
+  <b>Figure 6:</b> Attention maps in EfficientNet-B4 with MetaAttention blocks at layer 4
 (top), layer 6 (middle), and layer 9 (bottom)
 </p>
