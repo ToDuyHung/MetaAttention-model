@@ -1,13 +1,84 @@
 import os
 import pickle
 
-import cv2
-import pytorch_lightning as pl
 import albumentations as A
+import cv2
+import numpy as np
 import pandas as pd
-
+import pytorch_lightning as pl
+import torch
 from albumentations.pytorch import ToTensorV2
+from torch.utils.data import DataLoader, Dataset
 
+
+class HAM10000_ABCD_Dataset(Dataset):
+    def __init__(self, X, y, encoder, transform=None, p_dropout=0, mode='ABCD', use_meta=True):
+        self.use_meta = use_meta
+        self.encoder = encoder
+        self.mode = mode
+        self.X = X
+        self.data = self._split_and_encode_data(X)
+        self.y = self.encoder['dx'].transform(y['dx'])
+        self.transform = transform
+        self.p_dropout=p_dropout
+    
+    def __len__(self):
+        return self.X.shape[0]
+
+    def __getitem__(self, index):
+        y = self.y[index]
+        # img = Image.open(self.data['path'][index])
+        img = cv2.imread(self.data['path'][index])
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        if self.transform:
+            # img = self.transform(img)
+            img = self.transform(image=img)['image']
+        
+        if not self.use_meta:
+            return img, torch.tensor(y, dtype=torch.long)
+
+        if self.mode == '':
+            row = {k: self.data[k][index] for k in ('age', 'sex', 'localization')}
+        else:
+            row = {k: self.data[k][index] for k in ('age', 'sex', 'localization', 'abcd')}
+
+        if self.p_dropout > 0:
+            for attr in ('age', 'sex', 'localization'):
+                if np.random.rand() < self.p_dropout:
+                    row[attr] = np.zeros_like(row[attr])
+
+        metadata = torch.tensor(np.concatenate(list(row.values())), dtype=torch.float32)
+        data = (img, metadata)
+
+        return data, torch.tensor(y, dtype=torch.long)
+
+    def _split_and_encode_data(self, X):
+        data = {
+            'path': X['path']
+        }
+
+        abcd = []
+        if 'D' not in self.mode:
+            X = X.drop('eq_diameters', axis=1)
+        if 'C' not in self.mode:
+            X = X.drop(['C_rs', 'C_gs', 'C_bs'], axis=1)
+        if 'B' not in self.mode:
+            X = X.drop('compact_indexs', axis=1)
+
+        for attr in X.keys():
+            if attr == 'path':
+                continue
+            elif attr == 'age':
+                data['age'] = self.encoder[attr].transform(X[attr].values.reshape(-1, 1))
+            elif attr in ('sex', 'localization'):
+                data[attr] = self.encoder[attr].transform(X[attr].values.reshape(-1, 1)).toarray()
+            else:
+                abcd.append(self.encoder[attr].transform(X[attr].values.reshape(-1, 1)))
+        data['abcd'] = np.concatenate(abcd, axis=1)
+        return data
+
+    def label_counts(self):
+        return np.bincount(self.y)
 class HAM10000_ABCD_DataModule(pl.LightningDataModule):
     def __init__(self, data_path, img_size, batch_size=128, sampler_func=None, mode='ABCD', use_meta=True):
         super().__init__()
@@ -16,23 +87,6 @@ class HAM10000_ABCD_DataModule(pl.LightningDataModule):
         self.batch_size = batch_size
         self.sampler_func = sampler_func
         self.sampler = None
-        # self.train_trans = transforms.Compose([
-        #     transforms.RandomAffine(degrees=20, scale=(.8, 1.2)),
-        #     transforms.Resize(img_size + 20),
-        #     transforms.RandomCrop(img_size),
-        #     transforms.RandomVerticalFlip(),
-        #     transforms.RandomHorizontalFlip(),
-        #     transforms.ColorJitter(brightness=.3, contrast=.3, saturation=.3, hue=.1),
-        #     transforms.GaussianBlur(kernel_size=(5, 5)),
-        #     transforms.ToTensor(),
-        #     transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-        # ])
-        # self.val_trans = transforms.Compose([
-        #     transforms.Resize(img_size),
-        #     transforms.CenterCrop(img_size),
-        #     transforms.ToTensor(),
-        #     transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-        # ])
         self.train_trans = A.Compose([
             A.SmallestMaxSize(max_size=img_size + 20),
             # A.Resize(width=int((img_size+20) / 0.75), height=(img_size+20)),

@@ -1,6 +1,9 @@
 import torch
 import torch.nn as nn
-from SoftAttention import SoftAttention
+
+from soft_attention import SoftAttention
+
+
 class MetaBlock(nn.Module):
     def __init__(self, V, U):
         super(MetaBlock, self).__init__()
